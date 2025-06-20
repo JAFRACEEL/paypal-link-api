@@ -26,7 +26,10 @@ def obtener_access_token():
     return response.json()["access_token"]
 
 def actualizar_link_en_google_sheets(id_pago, link):
-    scope = ["https://www.googleapis.com/auth/spreadsheets"]
+    scope = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
     cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 
     if not cred_json:
