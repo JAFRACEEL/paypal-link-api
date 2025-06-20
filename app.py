@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import json
-from io import StringIO
 import gspread
+from io import StringIO
 from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
@@ -30,7 +30,7 @@ def actualizar_link_en_google_sheets(id_pago, link):
     cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 
     if not cred_json:
-        return False
+        raise Exception("GOOGLE_CREDENTIALS_JSON no está definido")
 
     info = json.loads(cred_json)
     credentials = Credentials.from_service_account_info(info, scopes=scope)
@@ -39,7 +39,7 @@ def actualizar_link_en_google_sheets(id_pago, link):
     sheet = gc.open(SHEET_NAME).worksheet(TABLA)
     records = sheet.get_all_records()
 
-    for i, row in enumerate(records, start=2):  # Fila 2 por los encabezados
+    for i, row in enumerate(records, start=2):  # Fila 2 por encabezado
         if row.get("IDPAGO") == id_pago:
             col_index = list(row.keys()).index("LINK_PAYPAL") + 1
             sheet.update_cell(i, col_index, link)
@@ -58,49 +58,63 @@ def generar_link():
     if not id_pago:
         return jsonify({"error": "Falta el parámetro 'id_pago'"}), 400
 
-    access_token = obtener_access_token()
+    try:
+        access_token = obtener_access_token()
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {access_token}"
-    }
-
-    payload = {
-        "plan_id": PLAN_ID,
-        "custom_id": id_pago,
-        "application_context": {
-            "brand_name": "MedicVida",
-            "locale": "es-PE",
-            "user_action": "SUBSCRIBE_NOW",
-            "shipping_preference": "NO_SHIPPING",
-            "return_url": "https://tuapp.com/gracias",
-            "cancel_url": "https://tuapp.com/cancelado"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {access_token}"
         }
-    }
 
-    response = requests.post(
-        "https://api-m.paypal.com/v1/billing/subscriptions",
-        headers=headers,
-        json=payload
-    )
+        payload = {
+            "plan_id": PLAN_ID,
+            "custom_id": id_pago,
+            "application_context": {
+                "brand_name": "MedicVida",
+                "locale": "es-PE",
+                "user_action": "SUBSCRIBE_NOW",
+                "shipping_preference": "NO_SHIPPING",
+                "return_url": "https://tuapp.com/gracias",
+                "cancel_url": "https://tuapp.com/cancelado"
+            }
+        }
 
-    if response.status_code != 201:
+        response = requests.post(
+            "https://api-m.paypal.com/v1/billing/subscriptions",
+            headers=headers,
+            json=payload
+        )
+
+        if response.status_code != 201:
+            return jsonify({
+                "error": "No se pudo crear la suscripción",
+                "detalle": response.json()
+            }), 500
+
+        resp_json = response.json()
+        approve_url = next((link["href"] for link in resp_json["links"] if link["rel"] == "approve"), None)
+
+        # Manejo seguro de error al actualizar Google Sheets
+        try:
+            actualizado = actualizar_link_en_google_sheets(id_pago, approve_url)
+        except Exception as e:
+            return jsonify({
+                "id_pago": id_pago,
+                "subscription_id": resp_json.get("id"),
+                "approve_url": approve_url,
+                "error_google_sheet": str(e)
+            }), 200
+
         return jsonify({
-            "error": "No se pudo crear la suscripción",
-            "detalle": response.json()
-        }), 500
+            "id_pago": id_pago,
+            "subscription_id": resp_json.get("id"),
+            "approve_url": approve_url,
+            "actualizado_en_google_sheets": actualizado
+        })
 
-    resp_json = response.json()
-    approve_url = next((link["href"] for link in resp_json["links"] if link["rel"] == "approve"), None)
-
-    actualizado = actualizar_link_en_google_sheets(id_pago, approve_url)
-
-    return jsonify({
-        "id_pago": id_pago,
-        "subscription_id": resp_json.get("id"),
-        "approve_url": approve_url,
-        "actualizado_en_google_sheets": actualizado
-    })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=3000)
+
