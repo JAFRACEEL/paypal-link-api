@@ -99,24 +99,21 @@ def generar_link():
 
         # Manejo seguro de error al actualizar Google Sheets
         try:
-            actualizado = actualizar_link_en_google_sheets(id_pago, approve_url)
-        except Exception as e:
-            return jsonify({
-                "id_pago": id_pago,
-                "subscription_id": resp_json.get("id"),
-                "approve_url": approve_url,
-                "error_google_sheet": str(e)
-            }), 200
+    actualizado = actualizar_link_en_google_sheets(id_pago, approve_url)
+except Exception as e:
+    return make_response(jsonify({
+        "id_pago": id_pago,
+        "subscription_id": resp_json.get("id"),
+        "approve_url": approve_url,
+        "error_google_sheet": str(e)
+    }), 200)
 
-        return jsonify({
-            "id_pago": id_pago,
-            "subscription_id": resp_json.get("id"),
-            "approve_url": approve_url,
-            "actualizado_en_google_sheets": actualizado
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+return make_response(jsonify({
+    "id_pago": id_pago,
+    "subscription_id": resp_json.get("id"),
+    "approve_url": approve_url,
+    "actualizado_en_google_sheets": actualizado
+}), 200)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=3000)
