@@ -99,7 +99,7 @@ def generar_link():
 
         # Manejo seguro de error al actualizar Google Sheets
         try:
-    actualizado = actualizar_link_en_google_sheets(id_pago, approve_url)
+            actualizado = actualizar_link_en_google_sheets(id_pago, approve_url)
 except Exception as e:
     return make_response(jsonify({
         "id_pago": id_pago,
