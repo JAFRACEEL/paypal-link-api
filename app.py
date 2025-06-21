@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 import requests
 import os
 import json
@@ -27,11 +27,10 @@ def obtener_access_token():
 
 def actualizar_link_en_google_sheets(id_pago, link):
     scope = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
     cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-
     if not cred_json:
         raise Exception("GOOGLE_CREDENTIALS_JSON no está definido")
 
@@ -97,23 +96,25 @@ def generar_link():
         resp_json = response.json()
         approve_url = next((link["href"] for link in resp_json["links"] if link["rel"] == "approve"), None)
 
-        # Manejo seguro de error al actualizar Google Sheets
         try:
             actualizado = actualizar_link_en_google_sheets(id_pago, approve_url)
-except Exception as e:
-    return make_response(jsonify({
-        "id_pago": id_pago,
-        "subscription_id": resp_json.get("id"),
-        "approve_url": approve_url,
-        "error_google_sheet": str(e)
-    }), 200)
+        except Exception as e:
+            return make_response(jsonify({
+                "id_pago": id_pago,
+                "subscription_id": resp_json.get("id"),
+                "approve_url": approve_url,
+                "error_google_sheet": str(e)
+            }), 200)
 
-return make_response(jsonify({
-    "id_pago": id_pago,
-    "subscription_id": resp_json.get("id"),
-    "approve_url": approve_url,
-    "actualizado_en_google_sheets": actualizado
-}), 200)
+        return make_response(jsonify({
+            "id_pago": id_pago,
+            "subscription_id": resp_json.get("id"),
+            "approve_url": approve_url,
+            "actualizado_en_google_sheets": actualizado
+        }), 200)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=3000)
