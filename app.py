@@ -9,7 +9,7 @@ from google.oauth2.service_account import Credentials
 app = Flask(__name__)
 
 # Configuración de PayPal
-PLAN_ID = "P-63387215JM106504CNA3AAGA"
+PLAN_ID = "P-5A407951PE6086927NBJVA6I"
 CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID")
 CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET")
 
